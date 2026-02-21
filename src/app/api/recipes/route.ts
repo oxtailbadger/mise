@@ -68,17 +68,19 @@ export async function POST(req: NextRequest) {
         notes: notes || null,
         favorite: !!favorite,
         ingredients: {
-          create: ingredients.map(
-            (ing: { name: string; quantity: string; unit?: string; notes?: string; isGlutenFlag?: boolean; gfSubstitute?: string }, i: number) => ({
-              name: ing.name,
-              quantity: ing.quantity,
-              unit: ing.unit || null,
-              notes: ing.notes || null,
-              isGlutenFlag: !!ing.isGlutenFlag,
-              gfSubstitute: ing.gfSubstitute || null,
-              sortOrder: i,
-            })
-          ),
+          create: ingredients
+            .filter((ing: { name?: string }) => ing.name?.trim())
+            .map(
+              (ing: { name: string; quantity?: string | null; unit?: string; notes?: string; isGlutenFlag?: boolean; gfSubstitute?: string }, i: number) => ({
+                name: ing.name,
+                quantity: ing.quantity ?? "",   // Claude can return null for "to taste" ingredients
+                unit: ing.unit || null,
+                notes: ing.notes || null,
+                isGlutenFlag: !!ing.isGlutenFlag,
+                gfSubstitute: ing.gfSubstitute || null,
+                sortOrder: i,
+              })
+            ),
         },
         tags: {
           create: tags.map((t: { type: string; value: string }) => ({

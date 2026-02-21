@@ -88,10 +88,10 @@ export function RecipeForm({
     e.preventDefault();
 
     const tags: { type: string; value: string }[] = [];
-    if (protein) tags.push({ type: "PROTEIN", value: protein });
-    if (veggie) tags.push({ type: "VEGGIE", value: veggie });
-    if (carb) tags.push({ type: "CARB", value: carb });
-    if (cuisine) tags.push({ type: "CUISINE", value: cuisine });
+    if (protein && protein !== "none") tags.push({ type: "PROTEIN", value: protein });
+    if (veggie && veggie !== "none") tags.push({ type: "VEGGIE", value: veggie });
+    if (carb && carb !== "none") tags.push({ type: "CARB", value: carb });
+    if (cuisine && cuisine !== "none") tags.push({ type: "CUISINE", value: cuisine });
 
     onSubmit({
       name,
