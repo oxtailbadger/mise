@@ -1,0 +1,145 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum GFStatus {
+  CONFIRMED_GF
+  CONTAINS_GLUTEN
+  NEEDS_REVIEW
+}
+
+enum DayStatus {
+  PLANNED
+  LEFTOVERS
+  EATING_OUT
+  SKIP
+}
+
+enum ItemCategory {
+  PRODUCE
+  PROTEIN
+  DAIRY
+  DRY_GOODS
+  CANNED
+  OTHER
+}
+
+enum TagType {
+  PROTEIN
+  VEGGIE
+  CARB
+  CUISINE
+}
+
+// ---------------------------------------------------------------------------
+// Recipe
+// ---------------------------------------------------------------------------
+
+model Recipe {
+  id             String             @id @default(cuid())
+  name           String
+  sourceUrl      String?
+  totalTime      Int? // minutes
+  activeCookTime Int? // minutes
+  potsAndPans    Int?
+  servings       Int                @default(2)
+  instructions   String
+  gfStatus       GFStatus           @default(NEEDS_REVIEW)
+  gfNotes        String?
+  notes          String?
+  favorite       Boolean            @default(false)
+  ingredients    RecipeIngredient[]
+  tags           RecipeTag[]
+  mealPlans      MealPlan[]
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+}
+
+model RecipeIngredient {
+  id           String  @id @default(cuid())
+  recipe       Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipeId     String
+  name         String
+  quantity     String
+  unit         String?
+  notes        String? // e.g. "finely chopped"
+  isGlutenFlag Boolean @default(false)
+  gfSubstitute String?
+  sortOrder    Int     @default(0)
+}
+
+model RecipeTag {
+  id       String  @id @default(cuid())
+  recipe   Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipeId String
+  type     TagType
+  value    String // e.g. "chicken", "italian", "rice"
+
+  @@unique([recipeId, type, value])
+}
+
+// ---------------------------------------------------------------------------
+// Meal Plan
+// ---------------------------------------------------------------------------
+
+model MealPlan {
+  id         String    @id @default(cuid())
+  weekStart  DateTime  // Monday 00:00:00 UTC of the planned week
+  dayOfWeek  Int       // 0 = Monday … 6 = Sunday
+  status         DayStatus @default(PLANNED)
+  recipe         Recipe?   @relation(fields: [recipeId], references: [id])
+  recipeId       String?
+  customMealName String?   // free-text name when no stored recipe is linked
+  servings       Int       @default(2) // may be scaled per-night
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([weekStart, dayOfWeek])
+}
+
+// ---------------------------------------------------------------------------
+// Grocery List
+// ---------------------------------------------------------------------------
+
+model GroceryList {
+  id        String        @id @default(cuid())
+  weekStart DateTime      @unique // ties to a MealPlan week
+  items     GroceryItem[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+model GroceryItem {
+  id           String       @id @default(cuid())
+  list         GroceryList  @relation(fields: [listId], references: [id], onDelete: Cascade)
+  listId       String
+  name         String
+  quantity     String?
+  unit         String?
+  category     ItemCategory @default(OTHER)
+  isPantryCheck Boolean     @default(false) // goes in "Check Pantry First" section
+  isManual     Boolean      @default(false) // user-added, not from meal plan
+  isQuickTrip  Boolean      @default(false) // mid-week one-off item
+  isChecked    Boolean      @default(false)
+  sortOrder    Int          @default(0)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Pantry Staples
+// ---------------------------------------------------------------------------
+
+model PantryStaple {
+  id        String   @id @default(cuid())
+  name      String   @unique // matched case-insensitively against ingredient names
+  createdAt DateTime @default(now())
+}
