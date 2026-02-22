@@ -31,14 +31,15 @@ const EMPTY_INGREDIENT: ParsedIngredient = {
   gfSubstitute: "",
 };
 
-const PROTEIN_OPTIONS = [
-  "chicken", "beef", "pork", "salmon", "shrimp", "tofu",
-  "turkey", "lamb", "tuna", "eggs", "vegetarian",
+const CUISINE_OPTIONS = [
+  "American", "Italian", "Mexican", "Asian", "Mediterranean",
+  "Thai", "Indian", "French", "Greek", "Japanese",
 ];
 
-const CUISINE_OPTIONS = [
-  "american", "italian", "mexican", "asian", "mediterranean",
-  "thai", "indian", "french", "greek", "japanese",
+const UNIT_OPTIONS = [
+  "tsp", "tbsp", "cup", "fl oz", "pt", "qt", "ml", "L",
+  "oz", "lb", "g", "kg",
+  "piece", "clove", "can", "bunch", "slice", "pinch", "dash", "sprig", "pkg",
 ];
 
 export function RecipeForm({
@@ -57,18 +58,11 @@ export function RecipeForm({
   const [ingredients, setIngredients] = useState<ParsedIngredient[]>(
     initialData?.ingredients?.length ? initialData.ingredients : [{ ...EMPTY_INGREDIENT }]
   );
-  const [protein, setProtein] = useState(
-    initialData?.tags?.find((t) => t.type === "PROTEIN")?.value ?? ""
-  );
-  const [veggie, setVeggie] = useState(
-    initialData?.tags?.find((t) => t.type === "VEGGIE")?.value ?? ""
-  );
-  const [carb, setCarb] = useState(
-    initialData?.tags?.find((t) => t.type === "CARB")?.value ?? ""
-  );
-  const [cuisine, setCuisine] = useState(
-    initialData?.tags?.find((t) => t.type === "CUISINE")?.value ?? ""
-  );
+  const [cuisine, setCuisine] = useState(() => {
+    const v = initialData?.tags?.find((t) => t.type === "CUISINE")?.value ?? "";
+    // Capitalize first letter — normalises both new values and any legacy lowercase DB values
+    return v ? v.charAt(0).toUpperCase() + v.slice(1) : "";
+  });
 
   function addIngredient() {
     setIngredients((prev) => [...prev, { ...EMPTY_INGREDIENT }]);
@@ -87,11 +81,14 @@ export function RecipeForm({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    const tags: { type: string; value: string }[] = [];
-    if (protein && protein !== "none") tags.push({ type: "PROTEIN", value: protein });
-    if (veggie && veggie !== "none") tags.push({ type: "VEGGIE", value: veggie });
-    if (carb && carb !== "none") tags.push({ type: "CARB", value: carb });
-    if (cuisine && cuisine !== "none") tags.push({ type: "CUISINE", value: cuisine });
+    // Preserve any AI-parsed tags (PROTEIN, VEGGIE, CARB) that aren't editable in this form
+    const otherTags = (initialData?.tags ?? []).filter(
+      (t) => t.type !== "CUISINE"
+    ) as { type: import("@prisma/client").TagType; value: string }[];
+    const cuisineTag =
+      cuisine && cuisine !== "none"
+        ? [{ type: "CUISINE" as import("@prisma/client").TagType, value: cuisine }]
+        : [];
 
     onSubmit({
       name,
@@ -102,7 +99,7 @@ export function RecipeForm({
       servings: parseInt(servings) || 2,
       instructions,
       ingredients: ingredients.filter((i) => i.name.trim()),
-      tags: tags as { type: import("@prisma/client").TagType; value: string }[],
+      tags: [...otherTags, ...cuisineTag],
     });
   }
 
@@ -182,60 +179,26 @@ export function RecipeForm({
         />
       </div>
 
-      {/* Tags */}
+      {/* Cuisine */}
       <div className="space-y-1.5">
-        <Label>Tags</Label>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <span className="text-xs text-muted-foreground">Protein</span>
-            <Select value={protein} onValueChange={setProtein}>
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="Select…" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">None</SelectItem>
-                {PROTEIN_OPTIONS.map((p) => (
-                  <SelectItem key={p} value={p} className="capitalize">{p}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <span className="text-xs text-muted-foreground">Cuisine</span>
-            <Select value={cuisine} onValueChange={setCuisine}>
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="Select…" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">None</SelectItem>
-                {CUISINE_OPTIONS.map((c) => (
-                  <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <span className="text-xs text-muted-foreground">Veggie</span>
-            <Input
-              value={veggie}
-              onChange={(e) => setVeggie(e.target.value)}
-              placeholder="e.g. broccoli"
-              className="h-9"
-            />
-          </div>
-          <div className="space-y-1">
-            <span className="text-xs text-muted-foreground">Carb</span>
-            <Input
-              value={carb}
-              onChange={(e) => setCarb(e.target.value)}
-              placeholder="e.g. rice"
-              className="h-9"
-            />
-          </div>
-        </div>
+        <Label>Cuisine</Label>
+        <Select value={cuisine} onValueChange={setCuisine}>
+          <SelectTrigger className="h-9">
+            <SelectValue placeholder="Select…" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">None</SelectItem>
+            {CUISINE_OPTIONS.map((c) => (
+              <SelectItem key={c} value={c}>{c}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Ingredients */}
+      <datalist id="unit-options">
+        {UNIT_OPTIONS.map((u) => <option key={u} value={u} />)}
+      </datalist>
       <div className="space-y-2">
         <Label>Ingredients</Label>
         <div className="space-y-2">
@@ -248,6 +211,7 @@ export function RecipeForm({
                 className="w-16 h-9 text-sm"
               />
               <Input
+                list="unit-options"
                 value={ing.unit ?? ""}
                 onChange={(e) => updateIngredient(i, "unit", e.target.value)}
                 placeholder="Unit"

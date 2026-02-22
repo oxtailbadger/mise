@@ -115,6 +115,9 @@ export default function NewRecipePage() {
 
   function handleFormSubmit(data: ParsedRecipe) {
     setEditedRecipe(data);
+    // Mirror edits back into parsedRecipe so the form re-populates correctly if the
+    // user clicks Back from GF review — without this it would reset to Claude's original parse
+    setParsedRecipe(data);
     setStep("review");
   }
 
