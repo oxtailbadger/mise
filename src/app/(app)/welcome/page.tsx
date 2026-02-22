@@ -10,6 +10,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { prisma } from "@/lib/prisma";
 
 const FEATURES = [
   {
@@ -52,6 +53,7 @@ const FEATURES = [
 
 export default async function WelcomePage() {
   const householdName = process.env.HOUSEHOLD_NAME ?? "your";
+  const recipeCount = await prisma.recipe.count();
 
   return (
     <div className="px-4 py-6 space-y-6">
@@ -67,21 +69,23 @@ export default async function WelcomePage() {
         </p>
       </div>
 
-      {/* Quick start CTA */}
-      <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 flex items-center justify-between gap-3">
-        <div>
-          <p className="font-semibold text-sm">Get started</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Add your first recipe to kick things off
-          </p>
+      {/* Quick start CTA — only shown until the first recipe is added */}
+      {recipeCount === 0 && (
+        <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 flex items-center justify-between gap-3">
+          <div>
+            <p className="font-semibold text-sm">Get started</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Add your first recipe to kick things off
+            </p>
+          </div>
+          <Link href="/recipes/new">
+            <Button size="sm" className="shrink-0 gap-1">
+              Add Recipe
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Button>
+          </Link>
         </div>
-        <Link href="/recipes/new">
-          <Button size="sm" className="shrink-0 gap-1">
-            Add Recipe
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Button>
-        </Link>
-      </div>
+      )}
 
       {/* Feature cards */}
       <div className="space-y-3">
