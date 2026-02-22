@@ -3,22 +3,26 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   ShoppingCart, RefreshCw, Loader2, Plus, Trash2, PackageSearch,
+  ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { GroceryItemRow } from "@/components/grocery-item-row";
 import { toast } from "sonner";
-import { formatWeekRange, fromISODate } from "@/lib/week-utils";
+import {
+  formatWeekRange, fromISODate, addWeeks, toISODate, getWeekStart, isCurrentWeek,
+} from "@/lib/week-utils";
 import { ITEM_CATEGORY_LABEL } from "@/lib/recipe-utils";
 import { CATEGORY_ORDER } from "@/types/grocery";
 import type { GroceryListClient, GroceryItemClient, ItemCategory } from "@/types/grocery";
 import { supabase } from "@/lib/supabase";
 
 interface Props {
-  weekStart: string; // "YYYY-MM-DD"
+  weekStart: string; // "YYYY-MM-DD" — seeds the initial week
 }
 
-export function GroceryClient({ weekStart }: Props) {
+export function GroceryClient({ weekStart: initialWeekStart }: Props) {
+  const [currentWeekStart, setCurrentWeekStart] = useState(initialWeekStart);
   const [list, setList] = useState<GroceryListClient | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -29,13 +33,31 @@ export function GroceryClient({ weekStart }: Props) {
   const [showAddForm, setShowAddForm] = useState(false);
   const addInputRef = useRef<HTMLInputElement>(null);
 
-  const weekLabel = formatWeekRange(fromISODate(weekStart));
+  const weekLabel = formatWeekRange(fromISODate(currentWeekStart));
+  const onCurrentWeek = isCurrentWeek(fromISODate(currentWeekStart));
+
+  // ── Week navigation ─────────────────────────────────────────────────────────
+
+  function navigate(delta: number) {
+    setList(null);
+    setShowAddForm(false);
+    setAddName(""); setAddQty(""); setAddUnit("");
+    setCurrentWeekStart((prev) => toISODate(addWeeks(fromISODate(prev), delta)));
+  }
+
+  function goToCurrentWeek() {
+    setList(null);
+    setShowAddForm(false);
+    setAddName(""); setAddQty(""); setAddUnit("");
+    setCurrentWeekStart(toISODate(getWeekStart()));
+  }
 
   // ── Fetch list ──────────────────────────────────────────────────────────────
 
   const fetchList = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await fetch(`/api/grocery?weekStart=${weekStart}`);
+      const res = await fetch(`/api/grocery?weekStart=${currentWeekStart}`);
       if (!res.ok) throw new Error("Failed to load");
       const data = await res.json();
       setList(data); // null when no list exists
@@ -44,12 +66,11 @@ export function GroceryClient({ weekStart }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [weekStart]);
+  }, [currentWeekStart]);
 
   useEffect(() => { fetchList(); }, [fetchList]);
 
   // ── Supabase Realtime subscription ─────────────────────────────────────────
-  // Listens for changes made on another device and refreshes the list.
 
   useEffect(() => {
     if (!list?.id) return;
@@ -66,7 +87,7 @@ export function GroceryClient({ weekStart }: Props) {
         )
         .subscribe();
     } catch {
-      // Supabase not configured yet — realtime disabled, optimistic updates still work
+      // Supabase not configured — realtime disabled, optimistic updates still work
     }
 
     return () => {
@@ -82,7 +103,7 @@ export function GroceryClient({ weekStart }: Props) {
       const res = await fetch("/api/grocery/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ weekStart }),
+        body: JSON.stringify({ weekStart: currentWeekStart }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Generate failed");
@@ -98,7 +119,6 @@ export function GroceryClient({ weekStart }: Props) {
   // ── Toggle checked ──────────────────────────────────────────────────────────
 
   async function handleToggle(id: string, checked: boolean) {
-    // Optimistic update
     setList((prev) =>
       prev
         ? { ...prev, items: prev.items.map((i) => i.id === id ? { ...i, isChecked: checked } : i) }
@@ -112,7 +132,6 @@ export function GroceryClient({ weekStart }: Props) {
       });
       if (!res.ok) throw new Error("Update failed");
     } catch {
-      // Revert on failure
       setList((prev) =>
         prev
           ? { ...prev, items: prev.items.map((i) => i.id === id ? { ...i, isChecked: !checked } : i) }
@@ -126,7 +145,6 @@ export function GroceryClient({ weekStart }: Props) {
 
   async function handleDelete(id: string) {
     const removed = list?.items.find((i) => i.id === id);
-    // Optimistic update
     setList((prev) =>
       prev ? { ...prev, items: prev.items.filter((i) => i.id !== id) } : prev
     );
@@ -134,7 +152,6 @@ export function GroceryClient({ weekStart }: Props) {
       const res = await fetch(`/api/grocery/items/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Delete failed");
     } catch {
-      // Revert
       if (removed) {
         setList((prev) =>
           prev ? { ...prev, items: [...prev.items, removed].sort((a, b) => a.sortOrder - b.sortOrder) } : prev
@@ -179,7 +196,6 @@ export function GroceryClient({ weekStart }: Props) {
   async function handleClearChecked() {
     if (!list) return;
     const checkedIds = new Set(list.items.filter((i) => i.isChecked).map((i) => i.id));
-    // Optimistic update
     setList((prev) => prev ? { ...prev, items: prev.items.filter((i) => !checkedIds.has(i.id)) } : prev);
     try {
       const res = await fetch("/api/grocery/clear-checked", {
@@ -190,7 +206,7 @@ export function GroceryClient({ weekStart }: Props) {
       if (!res.ok) throw new Error("Clear failed");
       toast.success("Checked items cleared");
     } catch {
-      fetchList(); // re-sync on failure
+      fetchList();
       toast.error("Could not clear checked items");
     }
   }
@@ -202,7 +218,7 @@ export function GroceryClient({ weekStart }: Props) {
     const backup = list;
     setList(null);
     try {
-      const res = await fetch(`/api/grocery?weekStart=${weekStart}`, { method: "DELETE" });
+      const res = await fetch(`/api/grocery?weekStart=${currentWeekStart}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Clear failed");
       toast.success("Grocery list cleared");
     } catch {
@@ -213,12 +229,11 @@ export function GroceryClient({ weekStart }: Props) {
 
   // ── Derived ─────────────────────────────────────────────────────────────────
 
-  const pantryItems = list?.items.filter((i) => i.isPantryCheck) ?? [];
-  const buyItems    = list?.items.filter((i) => !i.isPantryCheck) ?? [];
+  const pantryItems  = list?.items.filter((i) => i.isPantryCheck) ?? [];
+  const buyItems     = list?.items.filter((i) => !i.isPantryCheck) ?? [];
   const checkedCount = list?.items.filter((i) => i.isChecked).length ?? 0;
   const totalCount   = list?.items.length ?? 0;
 
-  // Group buy items by category in display order
   const byCategory = CATEGORY_ORDER.reduce<Record<ItemCategory, GroceryItemClient[]>>(
     (acc, cat) => {
       acc[cat] = buyItems.filter((i) => i.category === cat);
@@ -234,37 +249,64 @@ export function GroceryClient({ weekStart }: Props) {
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="px-4 pt-4 pb-3 bg-background sticky top-0 z-10 border-b border-border">
+        {/* Week navigation row */}
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-bold leading-tight">Grocery List</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">{weekLabel}</p>
+          <button
+            onClick={() => navigate(-1)}
+            className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+            aria-label="Previous week"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+
+          <div className="text-center">
+            <p className="text-sm font-semibold">{weekLabel}</p>
+            {!onCurrentWeek ? (
+              <button
+                onClick={goToCurrentWeek}
+                className="text-[11px] text-primary font-medium mt-0.5"
+              >
+                Back to this week
+              </button>
+            ) : (
+              <p className="text-[11px] text-muted-foreground mt-0.5">This week</p>
+            )}
           </div>
-          {list && (
+
+          <button
+            onClick={() => navigate(1)}
+            className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+            aria-label="Next week"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Progress + Regenerate row */}
+        {list && (
+          <div className="flex items-center justify-between mt-2">
+            <p className="text-xs text-muted-foreground">
+              {totalCount > 0 ? `${checkedCount} of ${totalCount} checked` : "List is empty"}
+            </p>
             <Button
               variant="outline"
               size="sm"
               onClick={handleGenerate}
               disabled={generating}
-              className="gap-1.5 h-8 text-xs"
+              className="gap-1.5 h-7 text-xs"
             >
               {generating
-                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                : <RefreshCw className="h-3.5 w-3.5" />}
+                ? <Loader2 className="h-3 w-3 animate-spin" />
+                : <RefreshCw className="h-3 w-3" />}
               Regenerate
             </Button>
-          )}
-        </div>
-        {list && totalCount > 0 && (
-          <p className="text-xs text-muted-foreground mt-1.5">
-            {checkedCount} of {totalCount} checked
-          </p>
+          </div>
         )}
       </div>
 
       {/* ── Body ───────────────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto px-4 py-4">
 
-        {/* Loading */}
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3, 4, 5].map((i) => (
@@ -272,7 +314,6 @@ export function GroceryClient({ weekStart }: Props) {
             ))}
           </div>
 
-        /* No list yet */
         ) : !list ? (
           <div className="flex flex-col items-center justify-center py-16 text-center gap-4">
             <div className="p-4 bg-muted rounded-full">
@@ -292,7 +333,6 @@ export function GroceryClient({ weekStart }: Props) {
             </Button>
           </div>
 
-        /* List exists but empty */
         ) : list.items.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
             <p className="text-sm text-muted-foreground">All items cleared!</p>
@@ -302,7 +342,6 @@ export function GroceryClient({ weekStart }: Props) {
             </Button>
           </div>
 
-        /* List with items */
         ) : (
           <div className="space-y-6">
 
@@ -401,17 +440,15 @@ export function GroceryClient({ weekStart }: Props) {
               </div>
             </div>
           ) : (
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1 h-9 gap-1.5 justify-start text-muted-foreground"
-                onClick={() => { setShowAddForm(true); setTimeout(() => addInputRef.current?.focus(), 50); }}
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Add an item…
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full h-9 gap-1.5 justify-start text-muted-foreground"
+              onClick={() => { setShowAddForm(true); setTimeout(() => addInputRef.current?.focus(), 50); }}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add an item…
+            </Button>
           )}
         </div>
       )}
