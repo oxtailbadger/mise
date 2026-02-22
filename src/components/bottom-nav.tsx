@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { href: "/welcome", label: "Welcome", icon: Hand },
-  { href: "/", label: "Plan", icon: CalendarDays },
+  { href: "/plan", label: "Plan", icon: CalendarDays },
   { href: "/recipes", label: "Recipes", icon: BookOpen },
   { href: "/grocery", label: "Grocery", icon: ShoppingCart },
   { href: "/settings", label: "Settings", icon: Settings },
@@ -20,9 +20,9 @@ export function BottomNav() {
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border max-w-lg mx-auto">
       <div className="flex items-center justify-around h-16 px-2 safe-area-pb">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-          // Exact match for root-level tabs ("/", "/welcome"); prefix match for the rest
+          // Exact match for /welcome (avoids false-positive on deeper paths); prefix match for the rest
           const active =
-            href === "/" || href === "/welcome"
+            href === "/welcome"
               ? pathname === href
               : pathname.startsWith(href);
           return (

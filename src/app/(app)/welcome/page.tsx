@@ -18,7 +18,7 @@ const FEATURES = [
     title: "Meal Planner",
     description:
       "Plan your dinners Mon–Sun. Assign recipes, mark nights as leftovers or eating out, and navigate between weeks.",
-    href: "/",
+    href: "/plan",
     status: "live" as const,
     action: "Open Planner",
   },
