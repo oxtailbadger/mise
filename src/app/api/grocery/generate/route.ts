@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { fromISODate, toISODate } from "@/lib/week-utils";
-import { consolidateIngredients, detectCategory } from "@/lib/grocery-utils";
+import { consolidateIngredients, detectCategory, matchesPantry } from "@/lib/grocery-utils";
 import type { ItemCategory } from "@prisma/client";
 
 // ── POST /api/grocery/generate ────────────────────────────────────────────────
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
       quantity: ing.quantity,
       unit: ing.unit,
       category: detectCategory(ing.name) as ItemCategory,
-      isPantryCheck: pantrySet.has(ing.name.toLowerCase().trim()),
+      isPantryCheck: matchesPantry(ing.name, pantrySet),
       isManual: false,
       isQuickTrip: false,
       isChecked: false,

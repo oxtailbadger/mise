@@ -93,6 +93,30 @@ export function detectCategory(ingredientName: string): ItemCategory {
   return "OTHER";
 }
 
+// ── Pantry staple matching ──────────────────────────────────────────────────
+
+/**
+ * Returns true if `ingredientName` matches any entry in `pantrySet`.
+ *
+ * Handles two cases:
+ *  1. Case-insensitive exact match  ("Olive Oil" matches pantry "olive oil")
+ *  2. OR expressions in ingredient names ("coconut oil or vegetable oil" matches
+ *     if EITHER "coconut oil" OR "vegetable oil" is in the pantry)
+ */
+export function matchesPantry(ingredientName: string, pantrySet: Set<string>): boolean {
+  const lower = ingredientName.toLowerCase().trim();
+
+  // Direct case-insensitive match
+  if (pantrySet.has(lower)) return true;
+
+  // Split on " or " (case-insensitive) and test each alternative
+  if (lower.includes(" or ")) {
+    return lower.split(/\s+or\s+/).some((part) => pantrySet.has(part.trim()));
+  }
+
+  return false;
+}
+
 // ── Ingredient consolidation ────────────────────────────────────────────────
 
 interface RawIngredient {
