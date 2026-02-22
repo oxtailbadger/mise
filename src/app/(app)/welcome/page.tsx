@@ -52,8 +52,11 @@ const FEATURES = [
 ];
 
 export default async function WelcomePage() {
-  const householdName = process.env.HOUSEHOLD_NAME ?? "your";
-  const recipeCount = await prisma.recipe.count();
+  const [settings, recipeCount] = await Promise.all([
+    prisma.householdSettings.findUnique({ where: { id: "singleton" } }),
+    prisma.recipe.count(),
+  ]);
+  const householdName = settings?.name ?? "your";
 
   return (
     <div className="px-4 py-6 space-y-6">
@@ -131,7 +134,7 @@ export default async function WelcomePage() {
 
       {/* Footer */}
       <p className="text-center text-xs text-muted-foreground pb-2">
-        Built for the Stanton household 🏠
+        Built for the {householdName} household 🏠
       </p>
     </div>
   );

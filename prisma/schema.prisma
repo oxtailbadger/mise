@@ -143,3 +143,13 @@ model PantryStaple {
   name      String   @unique // matched case-insensitively against ingredient names
   createdAt DateTime @default(now())
 }
+
+// ---------------------------------------------------------------------------
+// Household Settings  (singleton — always one row with id = "singleton")
+// ---------------------------------------------------------------------------
+
+model HouseholdSettings {
+  id        String   @id @default("singleton")
+  name      String   @default("your") // displayed on welcome screen
+  updatedAt DateTime @updatedAt
+}

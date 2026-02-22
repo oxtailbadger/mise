@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { PantryStaplesClient } from "@/components/pantry-staples";
+import { HouseholdNameClient } from "@/components/household-name-client";
 
 export default function SettingsPage() {
   return (
@@ -11,6 +12,20 @@ export default function SettingsPage() {
         <h1 className="text-2xl font-bold leading-tight">Settings</h1>
         <p className="text-sm text-muted-foreground mt-0.5">Manage your household preferences</p>
       </div>
+
+      {/* Household */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Household</CardTitle>
+          <CardDescription className="text-xs">
+            Your household name appears on the welcome screen. In the future it will also
+            identify your household when multiple users are added.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <HouseholdNameClient />
+        </CardContent>
+      </Card>
 
       {/* Pantry Staples */}
       <Card>
