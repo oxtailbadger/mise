@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { makePostRequest } from "./helpers";
 
 const { authMock, prismaMock } = vi.hoisted(() => {
@@ -177,5 +177,86 @@ describe("POST /api/grocery/generate", () => {
     prismaMock.mealPlan.findMany.mockRejectedValueOnce(new Error("DB error"));
     const res = await POST(makePostRequest("/api/grocery/generate", { weekStart: WEEK_START }));
     expect(res.status).toBe(500);
+  });
+});
+
+// ── Date-based filtering (current week skips past days) ───────────────────────
+
+describe("POST /api/grocery/generate — past-day filtering", () => {
+  // Freeze time to Wednesday 2026-02-25 UTC so we can control "today"
+  // 2026-02-23 is the Monday of that same week → isThisWeek = true
+  // todayDow = (3 + 6) % 7 = 2  (0=Mon … 6=Sun, Wednesday = 2)
+  const FROZEN_WEDNESDAY = new Date("2026-02-25T10:00:00.000Z");
+  const THIS_WEEK_START  = "2026-02-23"; // Monday of the frozen week
+  const NEXT_WEEK_START  = "2026-03-02"; // future week
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    vi.setSystemTime(FROZEN_WEDNESDAY);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("filters out past days when generating for the current week", async () => {
+    prismaMock.mealPlan.findMany.mockResolvedValueOnce([]);
+    prismaMock.pantryStaple.findMany.mockResolvedValueOnce([]);
+    prismaMock.groceryList.findUnique.mockResolvedValueOnce(null);
+    prismaMock.groceryList.create.mockResolvedValueOnce({
+      id: "list_1",
+      weekStart: new Date(`${THIS_WEEK_START}T00:00:00Z`),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      items: [],
+    });
+
+    await POST(makePostRequest("/api/grocery/generate", { weekStart: THIS_WEEK_START }));
+
+    // The findMany call must include a dayOfWeek >= 2 (Wednesday) filter
+    const call = prismaMock.mealPlan.findMany.mock.calls[0][0];
+    expect(call.where.dayOfWeek).toEqual({ gte: 2 });
+  });
+
+  it("does NOT filter days when generating for a future week", async () => {
+    prismaMock.mealPlan.findMany.mockResolvedValueOnce([]);
+    prismaMock.pantryStaple.findMany.mockResolvedValueOnce([]);
+    prismaMock.groceryList.findUnique.mockResolvedValueOnce(null);
+    prismaMock.groceryList.create.mockResolvedValueOnce({
+      id: "list_2",
+      weekStart: new Date(`${NEXT_WEEK_START}T00:00:00Z`),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      items: [],
+    });
+
+    await POST(makePostRequest("/api/grocery/generate", { weekStart: NEXT_WEEK_START }));
+
+    // No dayOfWeek filter for future weeks — all 7 days included
+    const call = prismaMock.mealPlan.findMany.mock.calls[0][0];
+    expect(call.where.dayOfWeek).toBeUndefined();
+  });
+
+  it("includes today's meals when generating on the same day", async () => {
+    // Freeze to Monday 2026-02-23 — todayDow = 0, so only Mon+ means no meals are skipped
+    vi.setSystemTime(new Date("2026-02-23T08:00:00.000Z")); // Monday
+
+    prismaMock.mealPlan.findMany.mockResolvedValueOnce([]);
+    prismaMock.pantryStaple.findMany.mockResolvedValueOnce([]);
+    prismaMock.groceryList.findUnique.mockResolvedValueOnce(null);
+    prismaMock.groceryList.create.mockResolvedValueOnce({
+      id: "list_3",
+      weekStart: new Date(`${THIS_WEEK_START}T00:00:00Z`),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      items: [],
+    });
+
+    await POST(makePostRequest("/api/grocery/generate", { weekStart: THIS_WEEK_START }));
+
+    const call = prismaMock.mealPlan.findMany.mock.calls[0][0];
+    // gte: 0 means Monday onwards — all days, i.e. nothing skipped on the first day
+    expect(call.where.dayOfWeek).toEqual({ gte: 0 });
   });
 });

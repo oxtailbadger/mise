@@ -214,7 +214,7 @@ export default function PlannerPage() {
       {/* ── Footer: Generate Grocery List ────────────────────────────────────── */}
       <div className="px-4 py-3 border-t border-border bg-background">
         <Link
-          href={`/grocery?weekStart=${toISODate(weekStart)}`}
+          href={`/grocery?weekStart=${toISODate(weekStart)}&generate=true`}
           className={plannedCount === 0 ? "pointer-events-none" : ""}
         >
           <Button className="w-full gap-2" disabled={plannedCount === 0}>

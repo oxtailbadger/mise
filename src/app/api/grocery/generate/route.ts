@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { fromISODate, toISODate } from "@/lib/week-utils";
+import { fromISODate, toISODate, getWeekStart } from "@/lib/week-utils";
 import { consolidateIngredients, detectCategory, matchesPantry } from "@/lib/grocery-utils";
 import type { ItemCategory } from "@prisma/client";
 
@@ -22,8 +22,19 @@ export async function POST(req: NextRequest) {
     const weekStart = fromISODate(weekStartStr);
 
     // ── 1. Get all planned days with recipes ─────────────────────────────────
+    // For the current week, skip days that have already passed (meals already cooked).
+    // todayDow: 0=Mon … 6=Sun (matches the dayOfWeek column convention)
+    const todayDow = (new Date().getUTCDay() + 6) % 7;
+    const isThisWeek = weekStartStr === toISODate(getWeekStart());
+
     const plannedDays = await prisma.mealPlan.findMany({
-      where: { weekStart, status: "PLANNED", recipeId: { not: null } },
+      where: {
+        weekStart,
+        status: "PLANNED",
+        recipeId: { not: null },
+        // Only skip past days when generating for the current week
+        ...(isThisWeek ? { dayOfWeek: { gte: todayDow } } : {}),
+      },
       include: {
         recipe: {
           include: { ingredients: true },
