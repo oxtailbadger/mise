@@ -12,6 +12,14 @@
 
 # testing
 /coverage
+/playwright-report
+/test-results
+
+# Claude Code internal
+.claude/
+
+# misc binaries
+*.pptx
 
 # next.js
 /.next/
