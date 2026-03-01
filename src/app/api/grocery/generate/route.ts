@@ -12,6 +12,7 @@ import type { ItemCategory } from "@prisma/client";
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const householdId = session.user.id;
 
   try {
     const { weekStart: weekStartStr } = await req.json();
@@ -24,11 +25,13 @@ export async function POST(req: NextRequest) {
     // ── 1. Get all planned days with recipes ─────────────────────────────────
     // For the current week, skip days that have already passed (meals already cooked).
     // todayDow: 0=Mon … 6=Sun (matches the dayOfWeek column convention)
-    const todayDow = (new Date().getUTCDay() + 6) % 7;
+    const now = new Date();
+    const todayDow = (now.getDay() + 6) % 7; // local day of week
     const isThisWeek = weekStartStr === toISODate(getWeekStart());
 
     const plannedDays = await prisma.mealPlan.findMany({
       where: {
+        householdId,
         weekStart,
         status: "PLANNED",
         recipeId: { not: null },
@@ -56,12 +59,12 @@ export async function POST(req: NextRequest) {
     const consolidated = consolidateIngredients(allIngredients);
 
     // ── 4. Load pantry staples for matching ──────────────────────────────────
-    const pantryStaples = await prisma.pantryStaple.findMany({ select: { name: true } });
+    const pantryStaples = await prisma.pantryStaple.findMany({ where: { householdId }, select: { name: true } });
     const pantrySet = new Set(pantryStaples.map((p) => p.name.toLowerCase().trim()));
 
     // ── 5. Upsert GroceryList, preserving manual items ───────────────────────
     const existingList = await prisma.groceryList.findUnique({
-      where: { weekStart },
+      where: { householdId_weekStart: { householdId, weekStart } },
       include: { items: { where: { isManual: true } } },
     });
 
@@ -90,7 +93,7 @@ export async function POST(req: NextRequest) {
       });
       // Fetch fresh
       list = await prisma.groceryList.findUnique({
-        where: { weekStart },
+        where: { householdId_weekStart: { householdId, weekStart } },
         include: {
           items: {
             orderBy: [
@@ -105,6 +108,7 @@ export async function POST(req: NextRequest) {
       // Create from scratch
       list = await prisma.groceryList.create({
         data: {
+          householdId,
           weekStart,
           items: { create: autoItems },
         },

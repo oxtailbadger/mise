@@ -8,12 +8,13 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(_req: NextRequest, { params }: Params) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const householdId = session.user.id;
 
   const { id } = await params;
 
   try {
-    const recipe = await prisma.recipe.findUnique({
-      where: { id },
+    const recipe = await prisma.recipe.findFirst({
+      where: { id, householdId },
       include: { ingredients: { orderBy: { sortOrder: "asc" } }, tags: true },
     });
 
@@ -28,6 +29,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
 export async function PUT(req: NextRequest, { params }: Params) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const householdId = session.user.id;
 
   const { id } = await params;
 
@@ -38,6 +40,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
       servings, instructions, gfStatus, gfNotes, notes, favorite,
       ingredients = [], tags = [],
     } = body;
+
+    // Verify ownership before update
+    const owned = await prisma.recipe.findFirst({ where: { id, householdId }, select: { id: true } });
+    if (!owned) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     // Replace ingredients and tags entirely
     const recipe = await prisma.recipe.update({
@@ -92,11 +98,13 @@ export async function PUT(req: NextRequest, { params }: Params) {
 export async function DELETE(_req: NextRequest, { params }: Params) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const householdId = session.user.id;
 
   const { id } = await params;
 
   try {
-    await prisma.recipe.delete({ where: { id } });
+    const { count } = await prisma.recipe.deleteMany({ where: { id, householdId } });
+    if (count === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[DELETE /api/recipes/[id]]", err);

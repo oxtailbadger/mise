@@ -8,12 +8,17 @@ import { prisma } from "@/lib/prisma";
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const householdId = session.user.id;
 
   try {
     const { listId } = await req.json();
     if (!listId) {
       return NextResponse.json({ error: "listId is required" }, { status: 400 });
     }
+
+    // Verify the list belongs to this household
+    const list = await prisma.groceryList.findFirst({ where: { id: listId, householdId }, select: { id: true } });
+    if (!list) return NextResponse.json({ error: "List not found" }, { status: 404 });
 
     const { count } = await prisma.groceryItem.deleteMany({
       where: { listId, isChecked: true },

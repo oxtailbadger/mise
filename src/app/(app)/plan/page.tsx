@@ -129,7 +129,11 @@ export default function PlannerPage() {
   // ── Derived ─────────────────────────────────────────────────────────────────
 
   const onCurrentWeek = isCurrentWeek(weekStart);
-  const todayDow = (new Date().getUTCDay() + 6) % 7; // 0=Mon … 6=Sun
+  // Use local time. After 9pm, dinner tonight is done — highlight tomorrow instead.
+  // After 9pm Sunday (rawDow=6), tomorrow is next week so nothing in this week is highlighted (-1).
+  const now = new Date();
+  const rawDow = (now.getDay() + 6) % 7; // local: 0=Mon … 6=Sun
+  const todayDow = now.getHours() >= 21 ? (rawDow < 6 ? rawDow + 1 : -1) : rawDow;
 
   const plannedCount = Object.values(weekPlan).filter(
     (d) => d.status === "PLANNED" && d.recipeId

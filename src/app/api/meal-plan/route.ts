@@ -11,6 +11,7 @@ import type { UpsertDayPayload } from "@/types/meal-plan";
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const householdId = session.user.id;
 
   const weekStartStr = req.nextUrl.searchParams.get("weekStart");
   if (!weekStartStr) {
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
   try {
     const weekStart = fromISODate(weekStartStr);
     const days = await prisma.mealPlan.findMany({
-      where: { weekStart },
+      where: { householdId, weekStart },
       include: {
         recipe: {
           select: { id: true, name: true, totalTime: true, gfStatus: true },
@@ -47,6 +48,7 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const householdId = session.user.id;
 
   try {
     const body: UpsertDayPayload = await req.json();
@@ -59,8 +61,9 @@ export async function PUT(req: NextRequest) {
     const weekStart = fromISODate(weekStartStr);
 
     const day = await prisma.mealPlan.upsert({
-      where: { weekStart_dayOfWeek: { weekStart, dayOfWeek } },
+      where: { householdId_weekStart_dayOfWeek: { householdId, weekStart, dayOfWeek } },
       create: {
+        householdId,
         weekStart,
         dayOfWeek,
         status: status as DayStatus,
@@ -97,6 +100,7 @@ export async function PUT(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const householdId = session.user.id;
 
   const weekStartStr = req.nextUrl.searchParams.get("weekStart");
   const dayOfWeekStr = req.nextUrl.searchParams.get("dayOfWeek");
@@ -110,7 +114,7 @@ export async function DELETE(req: NextRequest) {
     const dayOfWeek = parseInt(dayOfWeekStr);
 
     await prisma.mealPlan.deleteMany({
-      where: { weekStart, dayOfWeek },
+      where: { householdId, weekStart, dayOfWeek },
     });
 
     return NextResponse.json({ success: true });
@@ -126,6 +130,7 @@ export async function DELETE(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const householdId = session.user.id;
 
   try {
     const { weekStart: weekStartStr, action } = await req.json();
@@ -138,7 +143,7 @@ export async function POST(req: NextRequest) {
 
     // Load previous week
     const prevDays = await prisma.mealPlan.findMany({
-      where: { weekStart: prevWeekStart },
+      where: { householdId, weekStart: prevWeekStart },
     });
 
     if (prevDays.length === 0) {
@@ -147,7 +152,7 @@ export async function POST(req: NextRequest) {
 
     // Load existing days for this week to avoid overwriting
     const existing = await prisma.mealPlan.findMany({
-      where: { weekStart },
+      where: { householdId, weekStart },
       select: { dayOfWeek: true },
     });
     const existingDays = new Set(existing.map((d) => d.dayOfWeek));
@@ -156,6 +161,7 @@ export async function POST(req: NextRequest) {
     const toCreate = prevDays
       .filter((d) => !existingDays.has(d.dayOfWeek))
       .map((d) => ({
+        householdId,
         weekStart,
         dayOfWeek: d.dayOfWeek,
         status: d.status as DayStatus,
@@ -170,7 +176,7 @@ export async function POST(req: NextRequest) {
 
     // Return the full week
     const days = await prisma.mealPlan.findMany({
-      where: { weekStart },
+      where: { householdId, weekStart },
       include: {
         recipe: {
           select: { id: true, name: true, totalTime: true, gfStatus: true },

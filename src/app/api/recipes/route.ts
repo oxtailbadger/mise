@@ -6,6 +6,7 @@ import type { GFStatus, Prisma } from "@prisma/client";
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const householdId = session.user.id;
 
   const { searchParams } = req.nextUrl;
   const search = searchParams.get("search") ?? "";
@@ -15,6 +16,7 @@ export async function GET(req: NextRequest) {
   const protein = searchParams.get("protein") ?? "";
 
   const where: Prisma.RecipeWhereInput = {
+    householdId,
     ...(search && {
       OR: [
         { name: { contains: search, mode: "insensitive" } },
@@ -45,6 +47,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const householdId = session.user.id;
 
   try {
     const body = await req.json();
@@ -56,6 +59,7 @@ export async function POST(req: NextRequest) {
 
     const recipe = await prisma.recipe.create({
       data: {
+        householdId,
         name,
         sourceUrl: sourceUrl || null,
         totalTime: totalTime ? parseInt(totalTime) : null,

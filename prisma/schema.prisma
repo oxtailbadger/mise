@@ -40,11 +40,31 @@ enum TagType {
 }
 
 // ---------------------------------------------------------------------------
+// Household  (one row per household; id stored in JWT as the session user id)
+// ---------------------------------------------------------------------------
+
+model Household {
+  id            String             @id @default(cuid())
+  name          String             @unique   // login identifier; must be unique
+  password      String             // bcrypt hash
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  recipes       Recipe[]
+  mealPlans     MealPlan[]
+  groceryLists  GroceryList[]
+  pantryStaples PantryStaple[]
+  settings      HouseholdSettings?
+}
+
+// ---------------------------------------------------------------------------
 // Recipe
 // ---------------------------------------------------------------------------
 
 model Recipe {
   id             String             @id @default(cuid())
+  householdId    String
+  household      Household          @relation(fields: [householdId], references: [id])
   name           String
   sourceUrl      String?
   totalTime      Int? // minutes
@@ -61,6 +81,8 @@ model Recipe {
   mealPlans      MealPlan[]
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
+
+  @@index([householdId])
 }
 
 model RecipeIngredient {
@@ -91,18 +113,21 @@ model RecipeTag {
 // ---------------------------------------------------------------------------
 
 model MealPlan {
-  id         String    @id @default(cuid())
-  weekStart  DateTime  // Monday 00:00:00 UTC of the planned week
-  dayOfWeek  Int       // 0 = Monday … 6 = Sunday
+  id             String    @id @default(cuid())
+  householdId    String
+  household      Household @relation(fields: [householdId], references: [id])
+  weekStart      DateTime  // Monday 00:00:00 UTC of the planned week
+  dayOfWeek      Int       // 0 = Monday … 6 = Sunday
   status         DayStatus @default(PLANNED)
   recipe         Recipe?   @relation(fields: [recipeId], references: [id])
   recipeId       String?
   customMealName String?   // free-text name when no stored recipe is linked
   servings       Int       @default(2) // may be scaled per-night
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  @@unique([weekStart, dayOfWeek])
+  @@unique([householdId, weekStart, dayOfWeek])
+  @@index([householdId, weekStart])
 }
 
 // ---------------------------------------------------------------------------
@@ -110,28 +135,35 @@ model MealPlan {
 // ---------------------------------------------------------------------------
 
 model GroceryList {
-  id        String        @id @default(cuid())
-  weekStart DateTime      @unique // ties to a MealPlan week
-  items     GroceryItem[]
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  id          String        @id @default(cuid())
+  householdId String
+  household   Household     @relation(fields: [householdId], references: [id])
+  weekStart   DateTime
+  items       GroceryItem[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@unique([householdId, weekStart])
+  @@index([householdId, weekStart])
 }
 
 model GroceryItem {
-  id           String       @id @default(cuid())
-  list         GroceryList  @relation(fields: [listId], references: [id], onDelete: Cascade)
-  listId       String
-  name         String
-  quantity     String?
-  unit         String?
-  category     ItemCategory @default(OTHER)
-  isPantryCheck Boolean     @default(false) // goes in "Check Pantry First" section
-  isManual     Boolean      @default(false) // user-added, not from meal plan
-  isQuickTrip  Boolean      @default(false) // mid-week one-off item
-  isChecked    Boolean      @default(false)
-  sortOrder    Int          @default(0)
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  id            String       @id @default(cuid())
+  list          GroceryList  @relation(fields: [listId], references: [id], onDelete: Cascade)
+  listId        String
+  name          String
+  quantity      String?
+  unit          String?
+  category      ItemCategory @default(OTHER)
+  isPantryCheck Boolean      @default(false) // goes in "Check Pantry First" section
+  isManual      Boolean      @default(false) // user-added, not from meal plan
+  isQuickTrip   Boolean      @default(false) // mid-week one-off item
+  isChecked     Boolean      @default(false)
+  sortOrder     Int          @default(0)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([listId])
 }
 
 // ---------------------------------------------------------------------------
@@ -139,17 +171,24 @@ model GroceryItem {
 // ---------------------------------------------------------------------------
 
 model PantryStaple {
-  id        String   @id @default(cuid())
-  name      String   @unique // matched case-insensitively against ingredient names
-  createdAt DateTime @default(now())
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id])
+  name        String
+  createdAt   DateTime  @default(now())
+
+  @@unique([householdId, name])
+  @@index([householdId])
 }
 
 // ---------------------------------------------------------------------------
-// Household Settings  (singleton — always one row with id = "singleton")
+// Household Settings  (one row per household; looked up by householdId)
 // ---------------------------------------------------------------------------
 
 model HouseholdSettings {
-  id        String   @id @default("singleton")
-  name      String   @default("your") // displayed on welcome screen
-  updatedAt DateTime @updatedAt
+  id          String    @id @default(cuid())
+  householdId String    @unique
+  household   Household @relation(fields: [householdId], references: [id])
+  name        String    @default("your") // displayed on welcome screen
+  updatedAt   DateTime  @updatedAt
 }

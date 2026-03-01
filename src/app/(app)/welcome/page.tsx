@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 
 const FEATURES = [
   {
@@ -52,9 +53,16 @@ const FEATURES = [
 ];
 
 export default async function WelcomePage() {
+  const session = await auth();
+  const householdId = session?.user?.id ?? "";
+
   const [settings, recipeCount] = await Promise.all([
-    prisma.householdSettings.findUnique({ where: { id: "singleton" } }),
-    prisma.recipe.count(),
+    householdId
+      ? prisma.householdSettings.findUnique({ where: { householdId } })
+      : null,
+    householdId
+      ? prisma.recipe.count({ where: { householdId } })
+      : 0,
   ]);
   const householdName = settings?.name ?? "your";
 

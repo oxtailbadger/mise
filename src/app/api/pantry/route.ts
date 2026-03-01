@@ -8,9 +8,11 @@ import { prisma } from "@/lib/prisma";
 export async function GET() {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const householdId = session.user.id;
 
   try {
     const staples = await prisma.pantryStaple.findMany({
+      where: { householdId },
       orderBy: { name: "asc" },
     });
     return NextResponse.json(staples);
@@ -26,6 +28,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const householdId = session.user.id;
 
   try {
     const { name } = await req.json();
@@ -35,8 +38,8 @@ export async function POST(req: NextRequest) {
 
     // upsert so duplicates are silently ignored
     const staple = await prisma.pantryStaple.upsert({
-      where: { name: name.trim().toLowerCase() },
-      create: { name: name.trim().toLowerCase() },
+      where: { householdId_name: { householdId, name: name.trim().toLowerCase() } },
+      create: { householdId, name: name.trim().toLowerCase() },
       update: {},
     });
 

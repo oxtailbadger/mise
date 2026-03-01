@@ -10,6 +10,7 @@ import type { ItemCategory } from "@prisma/client";
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const householdId = session.user.id;
 
   try {
     const { listId, name, quantity, unit, category, isQuickTrip } = await req.json();
@@ -17,6 +18,10 @@ export async function POST(req: NextRequest) {
     if (!listId || !name?.trim()) {
       return NextResponse.json({ error: "listId and name are required" }, { status: 400 });
     }
+
+    // Verify the list belongs to this household before adding to it.
+    const list = await prisma.groceryList.findFirst({ where: { id: listId, householdId }, select: { id: true } });
+    if (!list) return NextResponse.json({ error: "List not found" }, { status: 404 });
 
     // Find the highest existing sortOrder
     const last = await prisma.groceryItem.findFirst({

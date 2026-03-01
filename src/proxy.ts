@@ -3,10 +3,13 @@ import { NextResponse } from "next/server";
 
 export default auth((req) => {
   const isLoggedIn = !!req.auth;
-  const isLoginPage = req.nextUrl.pathname === "/login";
-  const isApiAuth = req.nextUrl.pathname.startsWith("/api/auth");
+  const { pathname } = req.nextUrl;
+  const isLoginPage    = pathname === "/login";
+  const isRegisterPage = pathname === "/register";
+  const isApiAuth      = pathname.startsWith("/api/auth");
 
-  if (isApiAuth) return NextResponse.next();
+  // Auth routes and public pages are always allowed.
+  if (isApiAuth || isRegisterPage) return NextResponse.next();
   if (!isLoggedIn && !isLoginPage) {
     return NextResponse.redirect(new URL("/login", req.nextUrl));
   }

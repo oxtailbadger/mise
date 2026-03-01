@@ -10,6 +10,7 @@ type Params = { params: Promise<{ id: string }> };
 export async function PATCH(req: NextRequest, { params }: Params) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const householdId = session.user.id;
 
   const { id } = await params;
 
@@ -26,6 +27,13 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (Object.keys(data).length === 0) {
       return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
     }
+
+    // Verify item belongs to this household via its list
+    const owned = await prisma.groceryItem.findFirst({
+      where: { id, list: { householdId } },
+      select: { id: true },
+    });
+    if (!owned) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const item = await prisma.groceryItem.update({ where: { id }, data });
     return NextResponse.json(item);
@@ -44,11 +52,15 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 export async function DELETE(_req: NextRequest, { params }: Params) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const householdId = session.user.id;
 
   const { id } = await params;
 
   try {
-    await prisma.groceryItem.delete({ where: { id } });
+    const { count } = await prisma.groceryItem.deleteMany({
+      where: { id, list: { householdId } },
+    });
+    if (count === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[DELETE /api/grocery/items/[id]]", err);

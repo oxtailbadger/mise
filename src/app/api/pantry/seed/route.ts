@@ -31,15 +31,19 @@ const DEFAULT_STAPLES = [
 export async function POST() {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const householdId = session.user.id;
 
   try {
     // createMany with skipDuplicates handles the unique constraint gracefully
     const result = await prisma.pantryStaple.createMany({
-      data: DEFAULT_STAPLES.map((name) => ({ name })),
+      data: DEFAULT_STAPLES.map((name) => ({ householdId, name })),
       skipDuplicates: true,
     });
 
-    const all = await prisma.pantryStaple.findMany({ orderBy: { name: "asc" } });
+    const all = await prisma.pantryStaple.findMany({
+      where: { householdId },
+      orderBy: { name: "asc" },
+    });
     return NextResponse.json({ seeded: result.count, staples: all });
   } catch (err) {
     console.error("[POST /api/pantry/seed]", err);

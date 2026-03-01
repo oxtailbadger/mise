@@ -9,6 +9,7 @@ import { fromISODate, toISODate } from "@/lib/week-utils";
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const householdId = session.user.id;
 
   const weekStartStr = req.nextUrl.searchParams.get("weekStart");
   if (!weekStartStr) {
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest) {
   try {
     const weekStart = fromISODate(weekStartStr);
     const list = await prisma.groceryList.findUnique({
-      where: { weekStart },
+      where: { householdId_weekStart: { householdId, weekStart } },
       include: { items: { orderBy: [{ isPantryCheck: "desc" }, { category: "asc" }, { sortOrder: "asc" }] } },
     });
 
@@ -37,6 +38,7 @@ export async function GET(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const householdId = session.user.id;
 
   const weekStartStr = req.nextUrl.searchParams.get("weekStart");
   if (!weekStartStr) {
@@ -45,7 +47,7 @@ export async function DELETE(req: NextRequest) {
 
   try {
     const weekStart = fromISODate(weekStartStr);
-    await prisma.groceryList.deleteMany({ where: { weekStart } });
+    await prisma.groceryList.deleteMany({ where: { householdId, weekStart } });
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[DELETE /api/grocery]", err);

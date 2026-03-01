@@ -1,6 +1,6 @@
 /**
  * Week utilities for the Meal Planner.
- * All "weekStart" values are the Monday of that week at midnight UTC.
+ * All "weekStart" values are the Monday of that week at local midnight.
  */
 
 export const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
@@ -9,14 +9,13 @@ export const DAY_NAMES_LONG = [
 ] as const;
 
 /**
- * Returns the Monday of the week containing `date`, as a UTC midnight Date.
+ * Returns the Monday of the week containing `date`, at local midnight.
  */
 export function getWeekStart(date: Date = new Date()): Date {
   const d = new Date(date);
-  // Convert to UTC day-of-week (0=Sun … 6=Sat), shift so 0=Mon
-  const dow = (d.getUTCDay() + 6) % 7; // 0=Mon, 6=Sun
-  d.setUTCDate(d.getUTCDate() - dow);
-  d.setUTCHours(0, 0, 0, 0);
+  const dow = (d.getDay() + 6) % 7; // local: 0=Mon, 6=Sun
+  d.setDate(d.getDate() - dow);
+  d.setHours(0, 0, 0, 0);
   return d;
 }
 
@@ -25,19 +24,23 @@ export function getWeekStart(date: Date = new Date()): Date {
  */
 export function addWeeks(weekStart: Date, weeks: number): Date {
   const d = new Date(weekStart);
-  d.setUTCDate(d.getUTCDate() + weeks * 7);
+  d.setDate(d.getDate() + weeks * 7);
   return d;
 }
 
 /**
  * Format a weekStart as "YYYY-MM-DD" for use in API params.
+ * Uses local date components so the string matches the user's calendar date.
  */
 export function toISODate(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 /**
- * Parse a "YYYY-MM-DD" string to a UTC midnight Date.
+ * Parse a "YYYY-MM-DD" string to a UTC midnight Date (for API/DB consistency).
  */
 export function fromISODate(str: string): Date {
   return new Date(`${str}T00:00:00.000Z`);
@@ -48,12 +51,12 @@ export function fromISODate(str: string): Date {
  */
 export function formatWeekRange(weekStart: Date): string {
   const weekEnd = new Date(weekStart);
-  weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
+  weekEnd.setDate(weekEnd.getDate() + 6);
 
-  const startMonth = weekStart.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" });
-  const endMonth = weekEnd.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" });
-  const startDay = weekStart.getUTCDate();
-  const endDay = weekEnd.getUTCDate();
+  const startMonth = weekStart.toLocaleDateString("en-US", { month: "short" });
+  const endMonth = weekEnd.toLocaleDateString("en-US", { month: "short" });
+  const startDay = weekStart.getDate();
+  const endDay = weekEnd.getDate();
 
   if (startMonth === endMonth) {
     return `${startMonth} ${startDay}–${endDay}`;
@@ -66,7 +69,7 @@ export function formatWeekRange(weekStart: Date): string {
  */
 export function getDayDate(weekStart: Date, dayOfWeek: number): Date {
   const d = new Date(weekStart);
-  d.setUTCDate(d.getUTCDate() + dayOfWeek);
+  d.setDate(d.getDate() + dayOfWeek);
   return d;
 }
 
@@ -74,7 +77,7 @@ export function getDayDate(weekStart: Date, dayOfWeek: number): Date {
  * Format a day date for display, e.g. "Feb 17"
  */
 export function formatDayDate(date: Date): string {
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 /**
