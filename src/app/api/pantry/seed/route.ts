@@ -15,13 +15,13 @@ const DEFAULT_STAPLES = [
   "sugar", "brown sugar", "honey", "maple syrup",
   // Acids & condiments
   "white wine vinegar", "apple cider vinegar", "soy sauce",
-  "hot sauce", "dijon mustard", "fish sauce",
+  "hot sauce", "dijon mustard", "fish sauce", "tamari"
   // Canned & jarred
-  "chicken broth", "diced tomatoes", "tomato paste", "coconut milk",
+  "chicken broth", "diced tomatoes", "tomato paste", "coconut milk", "vegetable broth"
   // Dry goods
-  "rice", "cornstarch", "baking powder", "baking soda",
+  "rice", "sushi rice", "brown rice", "jasmine rice", "cornstarch", "baking powder", "baking soda",
   // Nuts & seeds
-  "sesame seeds",
+  "sesame seeds", "pine nuts", "peanuts"
 ];
 
 // ── POST /api/pantry/seed ─────────────────────────────────────────────────────
