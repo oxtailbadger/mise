@@ -15,9 +15,9 @@ const DEFAULT_STAPLES = [
   "sugar", "brown sugar", "honey", "maple syrup",
   // Acids & condiments
   "white wine vinegar", "apple cider vinegar", "soy sauce",
-  "hot sauce", "dijon mustard", "fish sauce", "tamari"
+  "hot sauce", "dijon mustard", "fish sauce", "tamari",
   // Canned & jarred
-  "chicken broth", "diced tomatoes", "tomato paste", "coconut milk", "vegetable broth"
+  "chicken broth", "diced tomatoes", "tomato paste", "coconut milk", "vegetable broth",
   // Dry goods
   "rice", "sushi rice", "brown rice", "jasmine rice", "cornstarch", "baking powder", "baking soda",
   // Nuts & seeds
